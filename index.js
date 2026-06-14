@@ -1,6 +1,8 @@
 import 'dotenv/config';
 import { Client, GatewayIntentBits } from 'discord.js';
-import MetaApi from 'metaapi.cloud-sdk';
+import { createRequire } from 'module';
+const require = createRequire(import.meta.url);
+const MetaApi = require('metaapi.cloud-sdk');
 import { parseSignal } from './signalParser.js';
 import { calculateLotSize, checkDrawdown, calcStopLossPips } from './riskManager.js';
 import {
