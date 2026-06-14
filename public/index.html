@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Discord Trading Bot — Dashboard</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0f1117;--bg2:#161b22;--bg3:#21262d;
+  --border:#30363d;--text:#e6edf3;--muted:#8b949e;
+  --green:#3fb950;--red:#f85149;--yellow:#d29922;--blue:#58a6ff;
+  --green-bg:#1a2e1a;--red-bg:#2e1a1a;--yellow-bg:#2e2a1a;--blue-bg:#1a2233;
+  --radius:8px;--radius-lg:12px;
+}
+body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:14px;line-height:1.5}
+.topbar{background:var(--bg2);border-bottom:1px solid var(--border);padding:12px 24px;display:flex;align-items:center;justify-content:space-between}
+.brand{display:flex;align-items:center;gap:10px;font-size:15px;font-weight:600}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--green);animation:pulse 2s infinite}
+.dot.off{background:var(--red);animation:none}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.badge{font-size:11px;padding:3px 10px;border-radius:20px;font-weight:600;background:var(--green-bg);color:var(--green)}
+.badge.off{background:var(--red-bg);color:var(--red)}
+.btn{font-size:12px;padding:6px 14px;border-radius:var(--radius);border:1px solid var(--border);background:var(--bg3);color:var(--text);cursor:pointer;display:inline-flex;align-items:center;gap:5px}
+.btn:hover{background:var(--border)}
+.btn.danger{border-color:#f85149;color:var(--red)}
+.btn.danger:hover{background:var(--red-bg)}
+.main{padding:20px 24px;max-width:1200px;margin:0 auto}
+.metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:18px}
+.metric{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:14px 16px}
+.metric .lbl{font-size:11px;color:var(--muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:.05em}
+.metric .val{font-size:24px;font-weight:600}
+.metric .sub{font-size:11px;color:var(--muted);margin-top:3px}
+.green{color:var(--green)}.red{color:var(--red)}.blue{color:var(--blue)}.yellow{color:var(--yellow)}
+.panels{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.panel{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
+.panel-head{padding:10px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+.log-wrap{height:280px;overflow-y:auto}
+.log-row{display:flex;align-items:flex-start;gap:8px;padding:6px 16px;border-bottom:1px solid var(--border);font-size:12px}
+.log-row:last-child{border-bottom:none}
+.log-time{color:var(--muted);min-width:52px;font-variant-numeric:tabular-nums;flex-shrink:0}
+.tag{font-size:10px;padding:1px 6px;border-radius:4px;font-weight:700;min-width:52px;text-align:center;flex-shrink:0}
+.tag.info{background:var(--blue-bg);color:var(--blue)}
+.tag.success{background:var(--green-bg);color:var(--green)}
+.tag.warn{background:var(--yellow-bg);color:var(--yellow)}
+.tag.error{background:var(--red-bg);color:var(--red)}
+.log-msg{color:var(--text);line-height:1.4}
+.trade-head,.trade-row{display:grid;grid-template-columns:72px 44px 52px 80px 80px 60px;gap:6px;padding:6px 16px;font-size:12px;border-bottom:1px solid var(--border);align-items:center}
+.trade-head{font-size:10px;color:var(--muted);text-transform:uppercase;font-weight:600;background:var(--bg3)}
+.trade-row:last-child{border-bottom:none}
+.dir{font-size:10px;padding:1px 7px;border-radius:4px;font-weight:700;text-align:center}
+.dir.buy{background:var(--green-bg);color:var(--green)}
+.dir.sell{background:var(--red-bg);color:var(--red)}
+.pnl.pos{color:var(--green);font-weight:600}
+.pnl.neg{color:var(--red);font-weight:600}
+.login{position:fixed;inset:0;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;z-index:100}
+.login-box{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:32px;width:320px;text-align:center}
+.login-box h2{margin-bottom:20px;font-size:16px}
+.login-box input{width:100%;padding:9px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);font-size:13px;margin-bottom:12px}
+.login-box button{width:100%;padding:9px;border-radius:var(--radius);border:none;background:var(--blue);color:#fff;font-weight:600;cursor:pointer;font-size:13px}
+.loader{color:var(--muted);text-align:center;padding:40px;font-size:13px}
+</style>
+</head>
+<body>
+
+<div id="login" class="login">
+  <div class="login-box">
+    <h2>🤖 Trading Bot Dashboard</h2>
+    <input type="password" id="pwd" placeholder="Mot de passe" onkeydown="if(event.key==='Enter')doLogin()">
+    <button onclick="doLogin()">Connexion</button>
+    <p id="login-err" style="color:var(--red);font-size:12px;margin-top:10px"></p>
+  </div>
+</div>
+
+<div id="app" style="display:none">
+  <div class="topbar">
+    <div class="brand">
+      <span class="dot" id="dot"></span>
+      Discord Trading Bot
+      <span class="badge" id="status-badge">EN LIGNE</span>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center">
+      <span style="font-size:12px;color:var(--muted)" id="last-update">—</span>
+      <button class="btn danger" id="toggle-btn" onclick="toggleBot()">⏹ Arrêter</button>
+    </div>
+  </div>
+
+  <div class="main">
+    <div class="metrics">
+      <div class="metric">
+        <div class="lbl">Signaux reçus</div>
+        <div class="val blue" id="m-signals">—</div>
+        <div class="sub">Aujourd'hui</div>
+      </div>
+      <div class="metric">
+        <div class="lbl">Trades exécutés</div>
+        <div class="val" id="m-trades" style="color:var(--text)">—</div>
+        <div class="sub" id="m-wl">—</div>
+      </div>
+      <div class="metric">
+        <div class="lbl">Winrate</div>
+        <div class="val green" id="m-wr">—</div>
+        <div class="sub">Sur la session</div>
+      </div>
+      <div class="metric">
+        <div class="lbl">P&L du jour</div>
+        <div class="val" id="m-pnl">—</div>
+        <div class="sub" id="m-balance">Balance: —</div>
+      </div>
+    </div>
+
+    <div class="panels">
+      <div class="panel">
+        <div class="panel-head">
+          <span>📋 Logs temps réel</span>
+          <button class="btn" onclick="clearLogs()" style="padding:2px 8px;font-size:11px">🗑 Vider</button>
+        </div>
+        <div class="log-wrap" id="log-list"><div class="loader">Connexion en cours...</div></div>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><span>📊 Trades récents</span></div>
+        <div class="trade-head"><span>Paire</span><span>Dir.</span><span>Lot</span><span>Entry</span><span>TP/SL</span><span>P&L</span></div>
+        <div class="log-wrap" id="trade-list"><div class="loader">En attente...</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+let ws, pwd='', botOn=true;
+
+function doLogin(){
+  pwd=document.getElementById('pwd').value;
+  if(!pwd){document.getElementById('login-err').textContent='Entrez le mot de passe';return;}
+  connectWS();
+}
+
+function connectWS(){
+  const proto=location.protocol==='https:'?'wss':'ws';
+  ws=new WebSocket(`${proto}://${location.host}`);
+  ws.onopen=()=>ws.send(JSON.stringify({action:'auth',password:pwd}));
+  ws.onmessage=(e)=>{
+    const msg=JSON.parse(e.data);
+    if(msg.event==='error'){document.getElementById('login-err').textContent=msg.data;ws.close();return;}
+    if(msg.event==='init'){
+      document.getElementById('login').style.display='none';
+      document.getElementById('app').style.display='block';
+      updateStats(msg.data.stats);
+      renderLogs(msg.data.logs);
+      renderTrades(msg.data.trades);
+    }
+    if(msg.event==='log')prependLog(msg.data);
+    if(msg.event==='trade')prependTrade(msg.data);
+    if(msg.event==='stats')updateStats(msg.data);
+    document.getElementById('last-update').textContent='Mise à jour: '+new Date().toLocaleTimeString('fr-FR');
+  };
+  ws.onclose=()=>setTimeout(connectWS,3000);
+}
+
+function updateStats(s){
+  botOn=s.botActive;
+  document.getElementById('dot').className='dot'+(botOn?'':' off');
+  document.getElementById('status-badge').textContent=botOn?'EN LIGNE':'ARRÊTÉ';
+  document.getElementById('status-badge').className='badge'+(botOn?'':' off');
+  document.getElementById('toggle-btn').textContent=botOn?'⏹ Arrêter':'▶ Démarrer';
+  document.getElementById('m-signals').textContent=s.signalsReceived;
+  document.getElementById('m-trades').textContent=s.tradesExecuted;
+  document.getElementById('m-wl').textContent=`${s.wins}W / ${s.losses}L`;
+  const wr=s.winrate;
+  const wrEl=document.getElementById('m-wr');
+  wrEl.textContent=wr+'%';
+  wrEl.className='val '+(wr>=60?'green':wr>=40?'yellow':'red');
+  const pnl=s.pnlDay;
+  const pnlEl=document.getElementById('m-pnl');
+  pnlEl.textContent=(pnl>=0?'+':'')+pnl.toFixed(2)+' $';
+  pnlEl.className='val '+(pnl>=0?'green':'red');
+  document.getElementById('m-balance').textContent='Balance: $'+s.balance.toLocaleString('fr-FR');
+}
+
+function renderLogs(logs){
+  document.getElementById('log-list').innerHTML=logs.map(logHtml).join('');
+}
+
+function prependLog(log){
+  const el=document.getElementById('log-list');
+  if(el.querySelector('.loader'))el.innerHTML='';
+  el.insertAdjacentHTML('afterbegin',logHtml(log));
+  if(el.children.length>100)el.lastChild.remove();
+}
+
+function logHtml(l){
+  return `<div class="log-row"><span class="log-time">${l.time}</span><span class="tag ${l.type}">${l.type.toUpperCase()}</span><span class="log-msg">${l.msg}</span></div>`;
+}
+
+function renderTrades(trades){
+  if(!trades.length)return;
+  document.getElementById('trade-list').innerHTML=trades.map(tradeHtml).join('');
+}
+
+function prependTrade(t){
+  const el=document.getElementById('trade-list');
+  if(el.querySelector('.loader'))el.innerHTML='';
+  el.insertAdjacentHTML('afterbegin',tradeHtml(t));
+  if(el.children.length>30)el.lastChild.remove();
+}
+
+function tradeHtml(t){
+  const pnl=t.pnl||0;
+  return `<div class="trade-row">
+    <span style="font-weight:600">${t.symbol}</span>
+    <span class="dir ${t.action.toLowerCase()}">${t.action}</span>
+    <span>${t.lot}</span>
+    <span>${t.entry}</span>
+    <span style="color:var(--muted)">${t.tp} / ${t.sl}</span>
+    <span class="pnl ${pnl>=0?'pos':'neg'}">${pnl>=0?'+':''}${pnl.toFixed(2)}</span>
+  </div>`;
+}
+
+function toggleBot(){
+  if(ws&&ws.readyState===1)ws.send(JSON.stringify({action:'toggleBot'}));
+}
+
+function clearLogs(){
+  document.getElementById('log-list').innerHTML='';
+}
+</script>
+</body>
+</html>
