@@ -1,0 +1,19 @@
+{
+  "name": "discord-trading-bot",
+  "version": "1.0.0",
+  "description": "Bot Discord de trading automatique — Groq + MetaApi + Dashboard",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "node --watch index.js"
+  },
+  "dependencies": {
+    "discord.js": "^14.15.0",
+    "groq-sdk": "^0.5.0",
+    "metaapi.cloud-sdk": "^27.0.0",
+    "express": "^4.18.0",
+    "ws": "^8.17.0",
+    "dotenv": "^16.0.0"
+  }
+}
