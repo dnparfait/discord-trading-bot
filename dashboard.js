@@ -1,10 +1,8 @@
-import express from 'express';
-import { WebSocketServer } from 'ws';
-import { createServer } from 'http';
-import { fileURLToPath } from 'url';
-import { dirname, join } from 'path';
+const express = require('express');
+const { WebSocketServer } = require('ws');
+const { createServer } = require('http');
+const path = require('path');
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
 const app = express();
 const server = createServer(app);
 const wss = new WebSocketServer({ server });
@@ -24,14 +22,15 @@ const state = {
   trades: [],
 };
 
-export function broadcastLog(type, msg) {
+function broadcastLog(type, msg) {
   const entry = { type, msg, time: new Date().toLocaleTimeString('fr-FR') };
   state.logs.unshift(entry);
   if (state.logs.length > 200) state.logs.pop();
   broadcast({ event: 'log', data: entry });
+  console.log(`[${type.toUpperCase()}] ${msg}`);
 }
 
-export function broadcastTrade(trade) {
+function broadcastTrade(trade) {
   state.trades.unshift(trade);
   if (state.trades.length > 50) state.trades.pop();
   state.tradesExecuted++;
@@ -42,24 +41,22 @@ export function broadcastTrade(trade) {
   broadcast({ event: 'stats', data: getStats() });
 }
 
-export function incrementSignals() {
+function incrementSignals() {
   state.signalsReceived++;
   broadcast({ event: 'stats', data: getStats() });
 }
 
-export function updateBalance(balance) {
+function updateBalance(balance) {
   state.balance = balance;
   broadcast({ event: 'stats', data: getStats() });
 }
 
-export function getBotState() {
+function getBotState() {
   return state.botActive;
 }
 
 function getStats() {
-  const wr = state.tradesExecuted > 0
-    ? Math.round((state.wins / state.tradesExecuted) * 100)
-    : 0;
+  const wr = state.tradesExecuted > 0 ? Math.round((state.wins / state.tradesExecuted) * 100) : 0;
   return {
     botActive: state.botActive,
     signalsReceived: state.signalsReceived,
@@ -81,7 +78,6 @@ function broadcast(payload) {
 
 wss.on('connection', (ws) => {
   ws.send(JSON.stringify({ event: 'init', data: { stats: getStats(), logs: state.logs.slice(0, 50), trades: state.trades.slice(0, 20) } }));
-
   ws.on('message', (raw) => {
     try {
       const msg = JSON.parse(raw);
@@ -92,22 +88,19 @@ wss.on('connection', (ws) => {
       }
       if (msg.action === 'toggleBot') {
         state.botActive = !state.botActive;
-        const status = state.botActive ? 'démarré' : 'arrêté';
-        broadcastLog('info', `Bot ${status} depuis le dashboard`);
+        broadcastLog('info', `Bot ${state.botActive ? 'démarré' : 'arrêté'} depuis le dashboard`);
         broadcast({ event: 'stats', data: getStats() });
       }
     } catch {}
   });
 });
 
-app.use(express.static(join(__dirname, 'public')));
+app.use(express.static(path.join(__dirname, 'public')));
 
-app.get('/api/stats', (req, res) => res.json(getStats()));
-app.get('/api/logs', (req, res) => res.json(state.logs));
-app.get('/api/trades', (req, res) => res.json(state.trades));
-
-export function startDashboard() {
+function startDashboard() {
   server.listen(PORT, () => {
     console.log(`Dashboard disponible → http://localhost:${PORT}`);
   });
 }
+
+module.exports = { broadcastLog, broadcastTrade, incrementSignals, updateBalance, getBotState, startDashboard };

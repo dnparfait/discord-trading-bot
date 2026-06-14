@@ -1,4 +1,4 @@
-import Groq from 'groq-sdk';
+const Groq = require('groq-sdk');
 
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
@@ -26,7 +26,7 @@ Règles :
 - Si le message n'est pas un signal de trading, réponds : {"valid": false, "reason": "pas un signal"}
 - entryPrice peut être null si c'est un ordre au marché`;
 
-export async function parseSignal(text) {
+async function parseSignal(text) {
   const chat = await groq.chat.completions.create({
     model: 'llama-3.3-70b-versatile',
     messages: [
@@ -36,10 +36,9 @@ export async function parseSignal(text) {
     temperature: 0,
     max_tokens: 300,
   });
-
   const raw = chat.choices[0].message.content.trim();
-
   const cleaned = raw.replace(/```json|```/g, '').trim();
-  const signal = JSON.parse(cleaned);
-  return signal;
+  return JSON.parse(cleaned);
 }
+
+module.exports = { parseSignal };

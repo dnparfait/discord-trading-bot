@@ -1,14 +1,9 @@
-import 'dotenv/config';
-import { Client, GatewayIntentBits } from 'discord.js';
-import { createRequire } from 'module';
-const require = createRequire(import.meta.url);
+require('dotenv').config();
+const { Client, GatewayIntentBits } = require('discord.js');
 const MetaApi = require('metaapi.cloud-sdk');
-import { parseSignal } from './signalParser.js';
-import { calculateLotSize, checkDrawdown, calcStopLossPips } from './riskManager.js';
-import {
-  broadcastLog, broadcastTrade, incrementSignals,
-  updateBalance, getBotState, startDashboard,
-} from './dashboard.js';
+const { parseSignal } = require('./signalParser');
+const { calculateLotSize, checkDrawdown, calcStopLossPips } = require('./riskManager');
+const { broadcastLog, broadcastTrade, incrementSignals, updateBalance, getBotState, startDashboard } = require('./dashboard');
 
 const client = new Client({
   intents: [
@@ -18,12 +13,11 @@ const client = new Client({
   ],
 });
 
-const { default: MetaApiClass } = MetaApi;
-const api = new MetaApiClass(process.env.META_API_TOKEN);
+const api = new MetaApi.default(process.env.META_API_TOKEN);
 
-const RISK_PERCENT    = parseFloat(process.env.RISK_PERCENT)     || 1;
-const MAX_DRAWDOWN    = parseFloat(process.env.MAX_DRAWDOWN_PCT)  || 10;
-const INITIAL_BALANCE = parseFloat(process.env.INITIAL_BALANCE)  || 5000;
+const RISK_PERCENT    = parseFloat(process.env.RISK_PERCENT)    || 1;
+const MAX_DRAWDOWN    = parseFloat(process.env.MAX_DRAWDOWN_PCT) || 10;
+const INITIAL_BALANCE = parseFloat(process.env.INITIAL_BALANCE) || 5000;
 const CHANNEL_ID      = process.env.DISCORD_CHANNEL_ID;
 
 async function getConnection() {
@@ -38,18 +32,17 @@ async function getConnection() {
 
 async function executeTrade(signal) {
   const conn = await getConnection();
-  const info  = await conn.getAccountInformation();
+  const info = await conn.getAccountInformation();
   const balance = info.balance;
   updateBalance(balance);
 
   checkDrawdown({ currentBalance: balance, initialBalance: INITIAL_BALANCE, maxDrawdownPct: MAX_DRAWDOWN });
 
-  const slPips = signal.entryPrice
-    ? calcStopLossPips(signal.entryPrice, signal.stopLoss, signal.symbol)
-    : calcStopLossPips(
-        signal.action === 'BUY' ? signal.stopLoss + 0.005 : signal.stopLoss - 0.005,
-        signal.stopLoss, signal.symbol
-      );
+  const slPips = calcStopLossPips(
+    signal.entryPrice || signal.stopLoss + (signal.action === 'BUY' ? 0.005 : -0.005),
+    signal.stopLoss,
+    signal.symbol
+  );
 
   const { lot, riskAmount, pipValue } = calculateLotSize({
     balance,
@@ -58,21 +51,14 @@ async function executeTrade(signal) {
     symbol: signal.symbol,
   });
 
-  broadcastLog('info',
-    `Risk: $${riskAmount} (${RISK_PERCENT}%) | SL: ${slPips} pips | PipVal: $${pipValue} | Lot: ${lot}`
-  );
+  broadcastLog('info', `Risk: $${riskAmount} (${RISK_PERCENT}%) | SL: ${slPips} pips | PipVal: $${pipValue} | Lot: ${lot}`);
 
-  const opts = { comment: 'DiscordBot', clientId: 'discord-bot' };
+  const opts = { comment: 'DiscordBot' };
   let result;
-
   if (signal.action === 'BUY') {
-    result = await conn.createMarketBuyOrder(
-      signal.symbol, lot, signal.stopLoss, signal.takeProfit, opts
-    );
+    result = await conn.createMarketBuyOrder(signal.symbol, lot, signal.stopLoss, signal.takeProfit, opts);
   } else {
-    result = await conn.createMarketSellOrder(
-      signal.symbol, lot, signal.stopLoss, signal.takeProfit, opts
-    );
+    result = await conn.createMarketSellOrder(signal.symbol, lot, signal.stopLoss, signal.takeProfit, opts);
   }
 
   await conn.close();
@@ -87,7 +73,7 @@ client.on('messageCreate', async (message) => {
     return;
   }
 
-  broadcastLog('info', `Signal Discord reçu: "${message.content.slice(0, 80)}..."`);
+  broadcastLog('info', `Signal reçu: "${message.content.slice(0, 80)}"`);
   incrementSignals();
 
   let signal;
@@ -100,7 +86,7 @@ client.on('messageCreate', async (message) => {
   }
 
   if (!signal?.valid) {
-    broadcastLog('warn', `Message ignoré — pas un signal valide (${signal?.reason || 'inconnu'})`);
+    broadcastLog('warn', `Message ignoré — pas un signal (${signal?.reason || 'inconnu'})`);
     return;
   }
 
@@ -130,9 +116,7 @@ client.on('messageCreate', async (message) => {
       pnl: 0,
     });
 
-    broadcastLog('success',
-      `Trade exécuté: ${signal.action} ${signal.symbol} ${lot} lots — Order #${result.orderId}`
-    );
+    broadcastLog('success', `Trade exécuté: ${signal.action} ${signal.symbol} ${lot} lots — Order #${result.orderId}`);
 
     await message.reply(
       `✅ **Trade exécuté !**\n` +
@@ -140,7 +124,6 @@ client.on('messageCreate', async (message) => {
       `Risque: $${riskAmount} (${RISK_PERCENT}%) | SL: ${slPips} pips\n` +
       `Order ID: \`${result.orderId}\``
     );
-
   } catch (err) {
     broadcastLog('error', `Erreur exécution: ${err.message}`);
     await message.reply(`❌ **Erreur:** ${err.message}`);
